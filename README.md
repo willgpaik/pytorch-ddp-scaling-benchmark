@@ -126,6 +126,7 @@ Defaults in `submit_sweep.sh`:
 - `GLOBAL_BS_LIST=(1024 2048)` — global batch sizes for strong scaling. Submitting at multiple values reveals the tradeoff between parallel efficiency and per-step computational intensity.
 
 > For ResNet-152 on ≤96GB cards, reduce to `PER_GPU_BS=64` and `GLOBAL_BS_LIST=(512 1024)`. ResNet-152's activation memory at the 1-GPU strong-scaling baseline is roughly 2.5x ResNet-50 at the same batch.
+
 > **General OOM guidance**: if you hit OOM on the 1-GPU strong-scaling baseline, halve `GLOBAL_BS_LIST` values until it fits. If you hit OOM on multi-GPU runs, halve `PER_GPU_BS` instead. Aim for 1-GPU peak memory below 85% of GPU capacity for clean scaling numbers, since memory pressure inflates baseline step time and can produce misleading "superlinear" efficiency.
 
 To change defaults for your environment, edit the variables at the top of `submit_sweep.sh`:
