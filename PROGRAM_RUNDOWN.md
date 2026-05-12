@@ -253,5 +253,6 @@ A few things in this benchmark and documentation are estimates rather than measu
 
 - The expected throughput ratios across A100/H100/H200/B200 in the section above are rough estimates based on published vendor and MLPerf data, not measured by this benchmark. Your actual numbers may differ by 20-30%.
 - Default batch sizes (`PER_GPU_BS=128`, `GLOBAL_BS_LIST=(1024 2048)`) are sized for ResNet-50. Larger models need smaller batches; see the README for ResNet-152 recommendations.
+- Memory pressure on the 1-GPU strong-scaling baseline can produce apparent superlinear speedup. If 1-GPU peak memory exceeds ~90% of GPU capacity, the baseline step time is inflated by allocator pressure, and reported strong-scaling efficiency may exceed 100% as an artifact. Choose global batch sizes that keep 1-GPU memory under 80% of capacity for clean scaling numbers.
 
 When publishing numbers, label them with the exact configuration used. There is no single "ResNet-50 on B200" number; there is "ResNet-50, BF16, batch 128, channels-last, no compile, on B200" and so on.
