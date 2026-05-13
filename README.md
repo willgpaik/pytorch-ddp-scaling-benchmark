@@ -55,23 +55,23 @@ If your compute capability is missing, PyTorch will fail at runtime with "no ker
 
 ### Step 3: edit the sbatch scripts
 
-Each sbatch script has a placeholder for environment activation near the top:
+Each sbatch script starts with module loads and an environment activation block:
 
 ```bash
-# source /path/to/your/venv/bin/activate
-```
-
-Replace with your activation command, e.g.:
-
-```bash
+module purge
+module load cuda/13.1   # adjust to your cluster's CUDA version
 module load miniforge3
-source $(conda info --base)/etc/profile.d/conda.sh
-conda activate pytorch-bench
+# source activate <env>
+# or conda activate <env>
 ```
+
+Adjust three things:
+- `cuda/13.1` — replace with your cluster's CUDA module name
+- `miniforge3` — replace with however your cluster exposes conda (could be `anaconda3`, `miniconda3`, etc.)
+- Uncomment one of the activation lines and replace `<env>` with your environment name
 
 You may also need to adjust:
 - `--partition`, `--account`, `--constraint` for your Slurm setup
-- `module load cuda/...` for your cluster's module names
 - `--gres=gpu:N` to match GPUs per node
 
 ## Running
