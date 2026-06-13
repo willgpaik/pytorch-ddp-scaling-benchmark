@@ -10,12 +10,12 @@ Tested on NVIDIA B200 (sm_100) and RTX Pro 6000 Blackwell (sm_120). Should work 
 
 ## Files
 
-- `benchmark_ddp.py` — main script, launched via torchrun
-- `run_1gpu.sbatch`, `run_1node_multigpu.sbatch`, `run_multinode.sbatch` — Slurm wrappers
-- `submit_sweep.sh` — submit a full matrix of jobs
-- `analyze_results.py` — aggregate JSON outputs into a table with speedup/efficiency
-- `visualize_results.py` — generate PNG plots from results
-- `PROGRAM_RUNDOWN.md` — full explanation of what the benchmark does and why
+- `benchmark_ddp.py` - main script, launched via torchrun
+- `run_1gpu.sbatch`, `run_1node_multigpu.sbatch`, `run_multinode.sbatch` - Slurm wrappers
+- `submit_sweep.sh` - submit a full matrix of jobs
+- `analyze_results.py` - aggregate JSON outputs into a table with speedup/efficiency
+- `visualize_results.py` - generate PNG plots from results
+- `PROGRAM_RUNDOWN.md` - full explanation of what the benchmark does and why
 
 ## Setup
 
@@ -46,10 +46,10 @@ python -c "import torch; print(torch.cuda.get_arch_list())"
 ```
 
 Match against your hardware:
-- A100 → `sm_80`
-- H100 / H200 → `sm_90`
-- B200 → `sm_100`
-- RTX Pro 6000 Blackwell → `sm_120`
+- A100 ➤ `sm_80`
+- H100 / H200 ➤ `sm_90`
+- B200 ➤ `sm_100`
+- RTX Pro 6000 Blackwell ➤ `sm_120`
 
 If your compute capability is missing, PyTorch will fail at runtime with "no kernel image is available for execution on the device." Switch to a newer PyTorch wheel or use the NVIDIA NGC PyTorch container.
 
@@ -66,8 +66,8 @@ module load miniforge3
 ```
 
 Adjust three things:
-- `cuda/13.1` — replace with your cluster's CUDA module name
-- `miniforge3` — replace with however your cluster exposes conda (could be `anaconda3`, `miniconda3`, etc.)
+- `cuda/13.1` - replace with your cluster's CUDA module name
+- `miniforge3` - replace with however your cluster exposes conda (could be `anaconda3`, `miniconda3`, etc.)
 - Uncomment one of the activation lines and replace `<env>` with your environment name
 
 You may also need to adjust:
