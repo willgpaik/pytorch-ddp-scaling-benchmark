@@ -46,10 +46,10 @@ python -c "import torch; print(torch.cuda.get_arch_list())"
 ```
 
 Match against your hardware:
-- A100 → `sm_80`
-- H100 / H200 → `sm_90`
-- B200 → `sm_100`
-- RTX Pro 6000 Blackwell → `sm_120`
+- A100 ➜ `sm_80`
+- H100 / H200 ➜ `sm_90`
+- B200 ➜ `sm_100`
+- RTX Pro 6000 Blackwell ➜ `sm_120`
 
 If your compute capability is missing, PyTorch will fail at runtime with "no kernel image is available for execution on the device." Switch to a newer PyTorch wheel or use the NVIDIA NGC PyTorch container.
 
