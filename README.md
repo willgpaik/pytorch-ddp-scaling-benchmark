@@ -75,9 +75,8 @@ Use the recommended values to set `PER_GPU_BS` in the sweep scripts. See the tab
 
 | GPU | VRAM | resnet152 fp16/bf16 | vit_b_16 fp16/bf16 |
 |---|---|---|---|
-| V100 SXM2 | 16 GB | 128 | 32 |
+| V100 SXM2 | 16 GB | 128 | 128 |
 | A100 SXM4 | 80 GB | 512 | 1024 |
-| H100 SXM5 | 80 GB | ~1024 | ~512 |
 
 Values are the largest power of 2 that fits within 90% of VRAM. Run `find_max_bs.py` to confirm on your hardware.
 
