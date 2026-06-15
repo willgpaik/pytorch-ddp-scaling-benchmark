@@ -1,0 +1,155 @@
+{
+  "tag": "2gpu_weak_vit_b_16_bf16_132-145-197-242",
+  "scaling_mode": "weak",
+  "world_size": 2,
+  "nodes": 1,
+  "gpus_per_node": 8,
+  "model": "vit_b_16",
+  "batch_size_per_gpu": 1024,
+  "global_batch_size": 2048,
+  "image_size": 224,
+  "precision": "bf16",
+  "channels_last": false,
+  "compile": false,
+  "warmup_sec_target": 60.0,
+  "warmup_sec_actual": 60.64271998699951,
+  "warmup_steps": 59,
+  "bench_sec_target": 300.0,
+  "bench_sec_actual": 303.46272970500104,
+  "bench_steps": 305,
+  "mean_step_sec": 0.9949463812261724,
+  "stdev_step_sec": 0.0009902552978894653,
+  "p50_step_sec": 0.9949458270002651,
+  "p95_step_sec": 0.9964875949990528,
+  "p99_step_sec": 0.9970187890012312,
+  "images_per_sec_per_gpu": 1029.201190458145,
+  "images_per_sec_global": 2058.40238091629,
+  "peak_mem_gb": {
+    "min_gb": 66.84052276611328,
+    "mean_gb": 66.84052276611328,
+    "max_gb": 66.84052276611328,
+    "spread_pct": 0.0
+  },
+  "straggler_ratio": 1.0000025760246272,
+  "slowest_rank": 0,
+  "fastest_rank": 1,
+  "gpu_sampling_rank0": {
+    "n_samples": 270,
+    "interval_sec": 1.0,
+    "gpu_activity_pct": {
+      "min": 46.0,
+      "mean": 99.78518518518518,
+      "max": 100.0
+    },
+    "mem_controller_pct": {
+      "min": 26.0,
+      "mean": 60.455555555555556,
+      "max": 66.0
+    },
+    "mem_used_mb": {
+      "min": 71525.0,
+      "mean": 71525.0,
+      "max": 71525.0
+    },
+    "power_w": {
+      "min": 297.46,
+      "mean": 392.5631481481482,
+      "max": 478.17
+    },
+    "sm_clock_mhz": {
+      "min": 1260.0,
+      "mean": 1307.0,
+      "max": 1380.0
+    }
+  },
+  "per_rank": [
+    {
+      "rank": 0,
+      "mean_step_sec": 0.9949463605880737,
+      "stdev_step_sec": 0.000990255270153284,
+      "p50_step_sec": 0.9949458241462708,
+      "p95_step_sec": 0.9964876174926758,
+      "p99_step_sec": 0.9970188140869141,
+      "images_per_sec": 1029.201171875,
+      "peak_mem_gb": 66.84052276611328,
+      "n_steps": 305,
+      "gpu_sampling": {
+        "n_samples": 270,
+        "interval_sec": 1.0,
+        "gpu_activity_pct": {
+          "min": 46.0,
+          "mean": 99.78518518518518,
+          "max": 100.0
+        },
+        "mem_controller_pct": {
+          "min": 26.0,
+          "mean": 60.455555555555556,
+          "max": 66.0
+        },
+        "mem_used_mb": {
+          "min": 71525.0,
+          "mean": 71525.0,
+          "max": 71525.0
+        },
+        "power_w": {
+          "min": 297.46,
+          "mean": 392.5631481481482,
+          "max": 478.17
+        },
+        "sm_clock_mhz": {
+          "min": 1260.0,
+          "mean": 1307.0,
+          "max": 1380.0
+        }
+      }
+    },
+    {
+      "rank": 1,
+      "mean_step_sec": 0.9949437975883484,
+      "stdev_step_sec": 0.0009932660032063723,
+      "p50_step_sec": 0.9949548244476318,
+      "p95_step_sec": 0.9964779615402222,
+      "p99_step_sec": 0.9970369338989258,
+      "images_per_sec": 1029.203857421875,
+      "peak_mem_gb": 66.84052276611328,
+      "n_steps": 305,
+      "gpu_sampling": {
+        "n_samples": 270,
+        "interval_sec": 1.0,
+        "gpu_activity_pct": {
+          "min": 69.0,
+          "mean": 99.88518518518518,
+          "max": 100.0
+        },
+        "mem_controller_pct": {
+          "min": 43.0,
+          "mean": 60.34074074074074,
+          "max": 66.0
+        },
+        "mem_used_mb": {
+          "min": 71525.0,
+          "mean": 71525.0,
+          "max": 71525.0
+        },
+        "power_w": {
+          "min": 101.5,
+          "mean": 387.7710740740741,
+          "max": 478.07
+        },
+        "sm_clock_mhz": {
+          "min": 1275.0,
+          "mean": 1328.0,
+          "max": 1395.0
+        }
+      }
+    }
+  ],
+  "torch_version": "2.12.0+cu130",
+  "cuda_version": "13.0",
+  "device_name": "NVIDIA A100-SXM4-80GB",
+  "device_capability": [
+    8,
+    0
+  ],
+  "nccl_topology": "\u001b[4mGPU0\tGPU1\tGPU2\tGPU3\tGPU4\tGPU5\tGPU6\tGPU7\tNIC0\tCPU Affinity\tNUMA Affinity\tGPU NUMA ID\u001b[0m\nGPU0\t X \tNV12\tNV12\tNV12\tNV12\tNV12\tNV12\tNV12\tPHB\t0-239\t0-1\t\tN/A\nGPU1\tNV12\t X \tNV12\tNV12\tNV12\tNV12\tNV12\tNV12\tPHB\t0-239\t0-1\t\tN/A\nGPU2\tNV12\tNV12\t X \tNV12\tNV12\tNV12\tNV12\tNV12\tPHB\t0-239\t0-1\t\tN/A\nGPU3\tNV12\tNV12\tNV12\t X \tNV12\tNV12\tNV12\tNV12\tPHB\t0-239\t0-1\t\tN/A\nGPU4\tNV12\tNV12\tNV12\tNV12\t X \tNV12\tNV12\tNV12\tPHB\t0-239\t0-1\t\tN/A\nGPU5\tNV12\tNV12\tNV12\tNV12\tNV12\t X \tNV12\tNV12\tPHB\t0-239\t0-1\t\tN/A\nGPU6\tNV12\tNV12\tNV12\tNV12\tNV12\tNV12\t X \tNV12\tPHB\t0-239\t0-1\t\tN/A\nGPU7\tNV12\tNV12\tNV12\tNV12\tNV12\tNV12\tNV12\t X \tPHB\t0-239\t0-1\t\tN/A\nNIC0\tPHB\tPHB\tPHB\tPHB\tPHB\tPHB\tPHB\tPHB\t X \t\t\t\t\n\nLegend:\n\n  X    = Self\n  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)\n  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node\n  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)\n  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)\n  PIX  = Connection traversing at most a single PCIe bridge\n  NV#  = Connection traversing a bonded set of # NVLinks\n\nNIC Legend:\n\n  NIC0: mlx5_0"
+}

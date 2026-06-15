@@ -1,0 +1,115 @@
+{
+  "tag": "1gpu_strong_resnet152_fp16_192-222-53-152",
+  "scaling_mode": "strong",
+  "world_size": 1,
+  "nodes": 1,
+  "gpus_per_node": 8,
+  "model": "resnet152",
+  "batch_size_per_gpu": 64,
+  "global_batch_size": 64,
+  "image_size": 224,
+  "precision": "fp16",
+  "channels_last": true,
+  "compile": false,
+  "warmup_sec_target": 60.0,
+  "warmup_sec_actual": 59.91100620199995,
+  "warmup_steps": 272,
+  "bench_sec_target": 300.0,
+  "bench_sec_actual": 302.57529111600024,
+  "bench_steps": 2178,
+  "mean_step_sec": 0.13892006946464341,
+  "stdev_step_sec": 0.0004973161756209009,
+  "p50_step_sec": 0.13883006700007172,
+  "p95_step_sec": 0.13972518499986109,
+  "p99_step_sec": 0.140510784000071,
+  "images_per_sec_per_gpu": 460.6965735522372,
+  "images_per_sec_global": 460.6965735522372,
+  "peak_mem_gb": {
+    "min_gb": 6.246860027313232,
+    "mean_gb": 6.246860027313232,
+    "max_gb": 6.246860027313232,
+    "spread_pct": 0.0
+  },
+  "straggler_ratio": 1.0,
+  "slowest_rank": 0,
+  "fastest_rank": 0,
+  "gpu_sampling_rank0": {
+    "n_samples": 277,
+    "interval_sec": 1.0,
+    "gpu_activity_pct": {
+      "min": 50.0,
+      "mean": 95.2346570397112,
+      "max": 97.0
+    },
+    "mem_controller_pct": {
+      "min": 34.0,
+      "mean": 65.38989169675091,
+      "max": 69.0
+    },
+    "mem_used_mb": {
+      "min": 7672.0,
+      "mean": 7672.0,
+      "max": 7672.0
+    },
+    "power_w": {
+      "min": 173.52,
+      "mean": 267.798953068592,
+      "max": 298.29
+    },
+    "sm_clock_mhz": {
+      "min": 1515.0,
+      "mean": 1528.7075812274368,
+      "max": 1530.0
+    }
+  },
+  "per_rank": [
+    {
+      "rank": 0,
+      "mean_step_sec": 0.13892006874084473,
+      "stdev_step_sec": 0.0004973161849193275,
+      "p50_step_sec": 0.1388300657272339,
+      "p95_step_sec": 0.13972517848014832,
+      "p99_step_sec": 0.14051078259944916,
+      "images_per_sec": 460.6965637207031,
+      "peak_mem_gb": 6.246860027313232,
+      "n_steps": 2178,
+      "gpu_sampling": {
+        "n_samples": 277,
+        "interval_sec": 1.0,
+        "gpu_activity_pct": {
+          "min": 50.0,
+          "mean": 95.2346570397112,
+          "max": 97.0
+        },
+        "mem_controller_pct": {
+          "min": 34.0,
+          "mean": 65.38989169675091,
+          "max": 69.0
+        },
+        "mem_used_mb": {
+          "min": 7672.0,
+          "mean": 7672.0,
+          "max": 7672.0
+        },
+        "power_w": {
+          "min": 173.52,
+          "mean": 267.798953068592,
+          "max": 298.29
+        },
+        "sm_clock_mhz": {
+          "min": 1515.0,
+          "mean": 1528.7075812274368,
+          "max": 1530.0
+        }
+      }
+    }
+  ],
+  "torch_version": "2.12.0+cu126",
+  "cuda_version": "12.6",
+  "device_name": "Tesla V100-SXM2-16GB",
+  "device_capability": [
+    7,
+    0
+  ],
+  "nccl_topology": "\u001b[4mGPU0\tGPU1\tGPU2\tGPU3\tGPU4\tGPU5\tGPU6\tGPU7\tNIC0\tCPU Affinity\tNUMA Affinity\tGPU NUMA ID\u001b[0m\nGPU0\t X \tNV1\tNV1\tNV2\tNV2\tPHB\tPHB\tPHB\tPHB\t0-87\t0-1\t\tN/A\nGPU1\tNV1\t X \tNV2\tNV1\tPHB\tNV2\tPHB\tPHB\tPHB\t0-87\t0-1\t\tN/A\nGPU2\tNV1\tNV2\t X \tNV2\tPHB\tPHB\tNV1\tPHB\tPHB\t0-87\t0-1\t\tN/A\nGPU3\tNV2\tNV1\tNV2\t X \tPHB\tPHB\tPHB\tNV1\tPHB\t0-87\t0-1\t\tN/A\nGPU4\tNV2\tPHB\tPHB\tPHB\t X \tNV1\tNV1\tNV2\tPHB\t0-87\t0-1\t\tN/A\nGPU5\tPHB\tNV2\tPHB\tPHB\tNV1\t X \tNV2\tNV1\tPHB\t0-87\t0-1\t\tN/A\nGPU6\tPHB\tPHB\tNV1\tPHB\tNV1\tNV2\t X \tNV2\tPHB\t0-87\t0-1\t\tN/A\nGPU7\tPHB\tPHB\tPHB\tNV1\tNV2\tNV1\tNV2\t X \tPHB\t0-87\t0-1\t\tN/A\nNIC0\tPHB\tPHB\tPHB\tPHB\tPHB\tPHB\tPHB\tPHB\t X \t\t\t\t\n\nLegend:\n\n  X    = Self\n  SYS  = Connection traversing PCIe as well as the SMP interconnect between NUMA nodes (e.g., QPI/UPI)\n  NODE = Connection traversing PCIe as well as the interconnect between PCIe Host Bridges within a NUMA node\n  PHB  = Connection traversing PCIe as well as a PCIe Host Bridge (typically the CPU)\n  PXB  = Connection traversing multiple PCIe bridges (without traversing the PCIe Host Bridge)\n  PIX  = Connection traversing at most a single PCIe bridge\n  NV#  = Connection traversing a bonded set of # NVLinks\n\nNIC Legend:\n\n  NIC0: mlx5_0"
+}
