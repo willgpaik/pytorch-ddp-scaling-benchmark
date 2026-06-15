@@ -45,8 +45,9 @@ def parse_args():
 
     # Workload
     p.add_argument("--model", default="resnet50",
-                   choices=["resnet50", "resnet101", "resnet152"],
-                   help="Larger models stress big GPUs more honestly")
+                   choices=["resnet50", "resnet101", "resnet152", "vit_b_16"],
+                   help="Larger models stress big GPUs more honestly. "
+                        "vit_b_16 is communication-heavy vs resnet compute-heavy.")
     p.add_argument("--image-size", type=int, default=224)
     p.add_argument("--num-classes", type=int, default=1000)
 
@@ -227,6 +228,10 @@ def build_model(name, num_classes):
     return getattr(models, name)(num_classes=num_classes)
 
 
+def is_vit(model_name):
+    return model_name.startswith("vit")
+
+
 def make_synthetic_batch(batch_size, image_size, num_classes, device,
                          channels_last):
     images = torch.randn(batch_size, 3, image_size, image_size,
@@ -248,7 +253,9 @@ def benchmark(args, rank, local_rank, world_size):
     per_gpu_batch, global_batch = resolve_batch_size(args, world_size, rank)
 
     model = build_model(args.model, args.num_classes)
-    if args.channels_last:
+    # ViT does not benefit from channels_last (not a conv-first architecture)
+    use_channels_last = args.channels_last and not is_vit(args.model)
+    if use_channels_last:
         model = model.to(memory_format=torch.channels_last)
     model = model.to(device)
 
@@ -262,7 +269,7 @@ def benchmark(args, rank, local_rank, world_size):
 
     images, labels = make_synthetic_batch(
         per_gpu_batch, args.image_size, args.num_classes,
-        device, args.channels_last,
+        device, use_channels_last,
     )
 
     def step():
@@ -442,6 +449,15 @@ def benchmark(args, rank, local_rank, world_size):
             ),
         }
 
+        # Topology snapshot (rank 0 only, best-effort)
+        topo_raw = None
+        try:
+            topo_raw = subprocess.check_output(
+                ["nvidia-smi", "topo", "--matrix"], text=True, timeout=10
+            ).strip()
+        except Exception:
+            pass
+
         results = {
             "tag": args.tag,
             "scaling_mode": args.scaling,
@@ -454,7 +470,7 @@ def benchmark(args, rank, local_rank, world_size):
             "global_batch_size": global_batch,
             "image_size": args.image_size,
             "precision": args.precision,
-            "channels_last": args.channels_last,
+            "channels_last": use_channels_last,
             "compile": args.compile,
             "warmup_sec_target": args.warmup_sec,
             "warmup_sec_actual": warmup_elapsed,
@@ -486,6 +502,7 @@ def benchmark(args, rank, local_rank, world_size):
             "cuda_version": torch.version.cuda,
             "device_name": torch.cuda.get_device_name(device),
             "device_capability": list(torch.cuda.get_device_capability(device)),
+            "nccl_topology": topo_raw,
         }
 
         print("\n" + "=" * 64, flush=True)
@@ -560,3 +577,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -46,37 +46,61 @@ def main():
     strong = [r for r in rows if r["scaling_mode"] == "strong"]
 
     print("\n=== WEAK SCALING ===")
-    print("Per-GPU batch fixed. Each row is a different scale.")
-    print(f"{'World':>6} {'Nodes':>5} {'Per-GPU BS':>10} {'Global BS':>9} "
-          f"{'Img/s/GPU':>10} {'Img/s global':>13} {'Step ms':>8} "
-          f"{'Activity%':>9} {'Mem GB':>7} {'Straggler':>9}")
-    for r in sorted(weak, key=lambda x: x["world_size"]):
-        smi = r.get("gpu_sampling_rank0")
-        act = (smi["gpu_activity_pct"]["mean"]
-               if smi and smi.get("gpu_activity_pct") else None)
-        mem = r.get("peak_mem_gb")
-        mem_max = mem["max_gb"] if isinstance(mem, dict) else mem
-        print(f"{r['world_size']:>6} {r['nodes']:>5} "
-              f"{r['batch_size_per_gpu']:>10} {r['global_batch_size']:>9} "
-              f"{fmt(r['images_per_sec_per_gpu']):>10} "
-              f"{fmt(r['images_per_sec_global']):>13} "
-              f"{fmt(r['mean_step_sec']*1000, 2):>8} "
-              f"{fmt(act, 0):>9} "
-              f"{fmt(mem_max, 1):>7} "
-              f"{fmt(r['straggler_ratio'], 3):>9}")
+    print("Per-GPU batch fixed. Efficiency = per-GPU throughput_N / throughput_1 "
+          "(ideal = 100%).")
+
+    # Group by (model, precision, per_gpu_bs) so efficiency is computed
+    # within the same experimental condition.
+    weak_groups = defaultdict(list)
+    for r in weak:
+        key = (r.get("model", "?"), r.get("precision", "?"),
+               r.get("batch_size_per_gpu", "?"))
+        weak_groups[key].append(r)
+
+    for key in sorted(weak_groups):
+        model, prec, bs = key
+        runs = sorted(weak_groups[key], key=lambda x: x["world_size"])
+        baseline = next((r for r in runs if r["world_size"] == 1), None)
+        base_tput = (baseline["images_per_sec_per_gpu"] if baseline else None)
+
+        print(f"\n  Model={model}  Precision={prec}  Per-GPU BS={bs}")
+        print(f"  {'World':>6} {'Nodes':>5} {'Global BS':>9} "
+              f"{'Img/s/GPU':>10} {'Img/s global':>13} {'Step ms':>8} "
+              f"{'Efficiency':>11} {'Activity%':>10} {'Mem GB':>7} "
+              f"{'Straggler':>9}")
+        for r in runs:
+            smi = r.get("gpu_sampling_rank0")
+            act = (smi["gpu_activity_pct"]["mean"]
+                   if smi and smi.get("gpu_activity_pct") else None)
+            mem = r.get("peak_mem_gb")
+            mem_max = mem["max_gb"] if isinstance(mem, dict) else mem
+            tput = r["images_per_sec_per_gpu"]
+            eff = (tput / base_tput * 100) if base_tput else None
+            print(f"  {r['world_size']:>6} {r['nodes']:>5} "
+                  f"{r['global_batch_size']:>9} "
+                  f"{fmt(tput):>10} "
+                  f"{fmt(r['images_per_sec_global']):>13} "
+                  f"{fmt(r['mean_step_sec']*1000, 2):>8} "
+                  f"{fmt(eff, 1):>10}% "
+                  f"{fmt(act, 0):>10} "
+                  f"{fmt(mem_max, 1):>7} "
+                  f"{fmt(r['straggler_ratio'], 3):>9}")
 
     print("\n=== STRONG SCALING ===")
-    # Group strong-scaling rows by global batch size for proper speedup calc
-    strong_by_gbs = defaultdict(list)
+    # Group by (model, precision, global_batch_size) for correct speedup calc
+    strong_groups = defaultdict(list)
     for r in strong:
-        strong_by_gbs[r["global_batch_size"]].append(r)
+        key = (r.get("model", "?"), r.get("precision", "?"),
+               r["global_batch_size"])
+        strong_groups[key].append(r)
 
-    for gbs in sorted(strong_by_gbs):
-        runs = sorted(strong_by_gbs[gbs], key=lambda x: x["world_size"])
+    for key in sorted(strong_groups):
+        model, prec, gbs = key
+        runs = sorted(strong_groups[key], key=lambda x: x["world_size"])
         baseline = next((r for r in runs if r["world_size"] == 1), None)
         baseline_t = baseline["mean_step_sec"] if baseline else None
 
-        print(f"\n  Global batch = {gbs}")
+        print(f"\n  Model={model}  Precision={prec}  Global BS={gbs}")
         print(f"  {'World':>6} {'Nodes':>5} {'Per-GPU BS':>10} "
               f"{'Step ms':>8} {'Img/s global':>13} {'Speedup':>8} "
               f"{'Efficiency':>10} {'Activity%':>9}")
@@ -141,3 +165,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -7,11 +7,10 @@
 #SBATCH --time=00:45:00
 #SBATCH --output=logs/bench_1gpu_%j.out
 #SBATCH --error=logs/bench_1gpu_%j.err
-# Time budget: 60s warmup + 600s bench + ~60s startup/teardown +
-# slack for torch.compile if enabled = 45 minutes is comfortable.
+# Time budget: 60s warmup + 600s bench + ~60s startup/teardown = 45 minutes.
 # Adjust for your cluster:
 #   --partition=<your-partition>
-#   --constraint=<b200|rtx_pro_6000>
+#   --constraint=<gpu-type>
 #   --account=<your-account>
 
 set -euo pipefail
@@ -19,7 +18,7 @@ mkdir -p logs results
 
 module purge
 # Adjust to your cluster's available CUDA version.
-# B200/RTX Pro 6000 need CUDA 12.8+. Older GPUs need less.
+# B200/RTX Pro 6000 require CUDA 12.8+; older GPUs work with earlier versions.
 module load cuda/13.1   # or whatever your cluster provides
 module load miniforge3
 # source activate <env>
@@ -36,13 +35,14 @@ python -c "import torch; print('torch:', torch.__version__); print('arch_list:',
 echo "================"
 
 # Configuration via env vars; override at submit time:
-#   sbatch --export=ALL,SCALING=strong,GLOBAL_BS=2048 run_1gpu.sbatch
+#   sbatch --export=ALL,SCALING=strong,GLOBAL_BS=2048,PRECISION=fp16 run_1gpu.sbatch
 SCALING="${SCALING:-weak}"
 PER_GPU_BS="${PER_GPU_BS:-256}"
-GLOBAL_BS="${GLOBAL_BS:-2048}"
-MODEL="${MODEL:-resnet50}"
+GLOBAL_BS="${GLOBAL_BS:-512}"
+MODEL="${MODEL:-resnet152}"
+PRECISION="${PRECISION:-bf16}"
 
-TAG="1gpu_${SCALING}_${MODEL}_$(hostname)_${SLURM_JOB_ID}"
+TAG="1gpu_${SCALING}_${MODEL}_${PRECISION}_$(hostname)_${SLURM_JOB_ID}"
 OUT="results/${TAG}.json"
 
 torchrun \
@@ -53,7 +53,7 @@ torchrun \
         --batch-size-per-gpu "${PER_GPU_BS}" \
         --global-batch-size "${GLOBAL_BS}" \
         --model "${MODEL}" \
-        --precision bf16 \
+        --precision "${PRECISION}" \
         --warmup-sec 60 \
         --bench-sec 600 \
         --tag "${TAG}" \

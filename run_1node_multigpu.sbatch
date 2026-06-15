@@ -7,16 +7,14 @@
 #SBATCH --time=00:45:00
 #SBATCH --output=logs/bench_1node_%j.out
 #SBATCH --error=logs/bench_1node_%j.err
-# Adjust --gres=gpu:N to match your node.
+# Adjust --gres=gpu:N to match your node's GPU count.
 # --ntasks=1 is correct: torchrun spawns the workers itself.
 
 set -euo pipefail
 mkdir -p logs results
 
 module purge
-# Adjust to your cluster's available CUDA version.
-# B200/RTX Pro 6000 need CUDA 12.8+. Older GPUs need less.
-module load cuda/13.1   # or whatever your cluster provides
+module load cuda/13.1
 module load miniforge3
 # source activate <env>
 # or conda activate <env>
@@ -33,11 +31,12 @@ echo "================"
 
 SCALING="${SCALING:-weak}"
 PER_GPU_BS="${PER_GPU_BS:-256}"
-GLOBAL_BS="${GLOBAL_BS:-2048}"
-MODEL="${MODEL:-resnet50}"
+GLOBAL_BS="${GLOBAL_BS:-512}"
+MODEL="${MODEL:-resnet152}"
+PRECISION="${PRECISION:-bf16}"
 
 NPROC=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
-TAG="1node_${NPROC}gpu_${SCALING}_${MODEL}_${SLURM_JOB_ID}"
+TAG="${NPROC}gpu_${SCALING}_${MODEL}_${PRECISION}_$(hostname)_${SLURM_JOB_ID}"
 OUT="results/${TAG}.json"
 
 torchrun \
@@ -49,7 +48,7 @@ torchrun \
         --batch-size-per-gpu "${PER_GPU_BS}" \
         --global-batch-size "${GLOBAL_BS}" \
         --model "${MODEL}" \
-        --precision bf16 \
+        --precision "${PRECISION}" \
         --warmup-sec 60 \
         --bench-sec 600 \
         --tag "${TAG}" \

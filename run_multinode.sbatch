@@ -15,7 +15,7 @@ mkdir -p logs results
 
 module purge
 # Adjust to your cluster's available CUDA version.
-# B200/RTX Pro 6000 need CUDA 12.8+. Older GPUs need less.
+# B200/RTX Pro 6000 require CUDA 12.8+; older GPUs work with earlier versions.
 module load cuda/13.1   # or whatever your cluster provides
 module load miniforge3
 # source activate <env>
@@ -36,21 +36,21 @@ echo "Rendezvous port: ${RDZV_PORT}"
 echo "GPUs/node      : ${SLURM_GPUS_ON_NODE:-?}"
 echo "========================"
 
-# NCCL: start with INFO to confirm it picks the right interface, drop to WARN
-# once you've verified.
+# NCCL: use INFO to confirm it picks the right interface, then drop to WARN.
 export NCCL_DEBUG=INFO
-# Tune if NCCL picks the wrong interface:
+# Uncomment and adjust if NCCL picks the wrong network interface:
 # export NCCL_SOCKET_IFNAME=ib0
 # export NCCL_IB_HCA=mlx5
 
 SCALING="${SCALING:-weak}"
 PER_GPU_BS="${PER_GPU_BS:-256}"
-GLOBAL_BS="${GLOBAL_BS:-2048}"
-MODEL="${MODEL:-resnet50}"
+GLOBAL_BS="${GLOBAL_BS:-512}"
+MODEL="${MODEL:-resnet152}"
+PRECISION="${PRECISION:-bf16}"
 
 NPROC=${SLURM_GPUS_ON_NODE:-8}
 WORLD=$((SLURM_NNODES * NPROC))
-TAG="${SLURM_NNODES}node_${NPROC}gpu_${WORLD}rank_${SCALING}_${MODEL}_${SLURM_JOB_ID}"
+TAG="${SLURM_NNODES}node_${NPROC}gpu_${WORLD}rank_${SCALING}_${MODEL}_${PRECISION}_${SLURM_JOB_ID}"
 OUT="results/${TAG}.json"
 
 # Note: variables that should expand on each node (\${SLURM_NODEID}) are
@@ -69,7 +69,7 @@ srun --kill-on-bad-exit=1 bash -c "
             --batch-size-per-gpu ${PER_GPU_BS} \
             --global-batch-size ${GLOBAL_BS} \
             --model ${MODEL} \
-            --precision bf16 \
+            --precision ${PRECISION} \
             --warmup-sec 60 \
             --bench-sec 600 \
             --tag '${TAG}' \

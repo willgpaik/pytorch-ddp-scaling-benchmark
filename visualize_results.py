@@ -3,20 +3,15 @@
 Visualize benchmark results from results/*.json.
 
 Produces four plots:
-  1. Throughput vs world size (weak scaling)
-  2. Throughput vs world size (strong scaling, one line per global batch)
-  3. Speedup vs world size (strong scaling, with ideal-linear reference)
-  4. Parallel efficiency vs world size (strong scaling)
-
-Optional 5th plot: GPU activity % per configuration (if smi data is present).
+  1. Weak scaling: per-GPU throughput by (model, precision)
+  2. Strong scaling: global throughput by (model, precision, GBS)
+  3. Strong scaling speedup with ideal-linear reference
+  4. Parallel efficiency
 
 Usage:
-    pip install matplotlib    # one-time, only needed for this script
     python visualize_results.py results/
     python visualize_results.py results/ --output-dir plots/
-    python visualize_results.py results/ --device-label "B200"
-
-The --device-label is just for plot titles; nothing functional.
+    python visualize_results.py results/ --device-label "A100 80GB"
 """
 
 import argparse
@@ -39,47 +34,66 @@ def load_results(results_dir):
 
 
 def get_activity(r):
-    """Return mean GPU activity % from rank 0 sampling, or None."""
     smi = r.get("gpu_sampling_rank0")
     if not smi:
         return None
-    act = smi.get("gpu_activity_pct", {})
-    return act.get("mean")
+    return smi.get("gpu_activity_pct", {}).get("mean")
 
 
 def get_max_mem(r):
-    """Return max peak memory across ranks, in GB."""
     mem = r.get("peak_mem_gb")
     if isinstance(mem, dict):
         return mem.get("max_gb")
-    return mem  # backward compat with old format
+    return mem
+
+
+def make_label(model, prec):
+    return f"{model} ({prec})"
+
+
+def group_weak(weak_rows):
+    """Group weak scaling rows by (model, precision)."""
+    groups = defaultdict(list)
+    for r in weak_rows:
+        key = (r["model"], r.get("precision", "fp16"))
+        groups[key].append(r)
+    return {k: sorted(v, key=lambda x: x["world_size"])
+            for k, v in groups.items()}
+
+
+def group_strong(strong_rows):
+    """Group strong scaling rows by (model, precision, global_batch_size)."""
+    groups = defaultdict(list)
+    for r in strong_rows:
+        key = (r["model"], r.get("precision", "fp16"), r["global_batch_size"])
+        groups[key].append(r)
+    return {k: sorted(v, key=lambda x: x["world_size"])
+            for k, v in groups.items()}
+
+
+def color_cycle(ax, n):
+    import matplotlib.pyplot as plt
+    return [ax._get_lines.get_next_color() for _ in range(n)]
 
 
 def plot_weak_throughput(weak_rows, ax, device_label):
-    """Weak scaling: throughput per GPU should stay flat. Total grows linearly."""
+    """Per-GPU throughput should stay flat -- drop shows DDP overhead."""
     if not weak_rows:
         ax.text(0.5, 0.5, "No weak-scaling data",
                 ha="center", va="center", transform=ax.transAxes)
-        ax.set_title("Weak scaling: throughput")
+        ax.set_title("Weak scaling: per-GPU throughput")
         return
 
-    # Group by model so different models become different lines.
-    by_model = defaultdict(list)
-    for r in weak_rows:
-        by_model[r["model"]].append(r)
+    groups = group_weak(weak_rows)
 
-    for model, runs in by_model.items():
-        runs = sorted(runs, key=lambda x: x["world_size"])
+    for (model, prec), runs in sorted(groups.items()):
         ws = [r["world_size"] for r in runs]
         per_gpu = [r["images_per_sec_per_gpu"] for r in runs]
-        global_tput = [r["images_per_sec_global"] for r in runs]
-        ax.plot(ws, per_gpu, "o-",
-                label=f"{model} per-GPU", linewidth=2, markersize=8)
-        ax.plot(ws, global_tput, "s--",
-                label=f"{model} global", linewidth=2, markersize=8, alpha=0.7)
+        label = make_label(model, prec)
+        ax.plot(ws, per_gpu, "o-", label=label, linewidth=2, markersize=8)
 
     ax.set_xlabel("World size (number of GPUs)")
-    ax.set_ylabel("Throughput (images/sec)")
+    ax.set_ylabel("Throughput (images/sec/GPU)")
     title = "Weak scaling: per-GPU batch fixed"
     if device_label:
         title += f" — {device_label}"
@@ -87,27 +101,58 @@ def plot_weak_throughput(weak_rows, ax, device_label):
     ax.legend()
     ax.grid(True, alpha=0.3)
     ax.set_xscale("log", base=2)
-    ax.set_yscale("log")
+
+
+def plot_weak_efficiency(weak_rows, ax, device_label):
+    """Efficiency = throughput_N_per_gpu / throughput_1_per_gpu (ideal = 100%)."""
+    if not weak_rows:
+        ax.text(0.5, 0.5, "No weak-scaling data",
+                ha="center", va="center", transform=ax.transAxes)
+        ax.set_title("Weak scaling: efficiency")
+        return
+
+    groups = group_weak(weak_rows)
+
+    for (model, prec), runs in sorted(groups.items()):
+        baseline = next((r for r in runs if r["world_size"] == 1), None)
+        if baseline is None:
+            continue
+        base_tput = baseline["images_per_sec_per_gpu"]
+        ws = [r["world_size"] for r in runs]
+        eff = [r["images_per_sec_per_gpu"] / base_tput * 100 for r in runs]
+        label = make_label(model, prec)
+        ax.plot(ws, eff, "o-", label=label, linewidth=2, markersize=8)
+
+    ax.axhline(y=100, color="k", linestyle="--", linewidth=1, alpha=0.5,
+               label="ideal (100%)")
+    ax.axhline(y=90, color="orange", linestyle=":", linewidth=1, alpha=0.5,
+               label="90% threshold")
+    ax.set_xlabel("World size (number of GPUs)")
+    ax.set_ylabel("Scaling efficiency (%)")
+    title = "Weak scaling: efficiency"
+    if device_label:
+        title += f" — {device_label}"
+    ax.set_title(title)
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.set_xscale("log", base=2)
+    ax.set_ylim(80, 105)
 
 
 def plot_strong_throughput(strong_rows, ax, device_label):
-    """Strong scaling: throughput should grow roughly linearly with world size."""
     if not strong_rows:
         ax.text(0.5, 0.5, "No strong-scaling data",
                 ha="center", va="center", transform=ax.transAxes)
         ax.set_title("Strong scaling: throughput")
         return
 
-    by_gbs = defaultdict(list)
-    for r in strong_rows:
-        by_gbs[r["global_batch_size"]].append(r)
+    groups = group_strong(strong_rows)
 
-    for gbs in sorted(by_gbs):
-        runs = sorted(by_gbs[gbs], key=lambda x: x["world_size"])
+    for (model, prec, gbs), runs in sorted(groups.items()):
         ws = [r["world_size"] for r in runs]
         global_tput = [r["images_per_sec_global"] for r in runs]
-        ax.plot(ws, global_tput, "o-",
-                label=f"global batch={gbs}", linewidth=2, markersize=8)
+        label = f"{make_label(model, prec)} GBS={gbs}"
+        ax.plot(ws, global_tput, "o-", label=label, linewidth=2, markersize=8)
 
     ax.set_xlabel("World size (number of GPUs)")
     ax.set_ylabel("Global throughput (images/sec)")
@@ -115,41 +160,37 @@ def plot_strong_throughput(strong_rows, ax, device_label):
     if device_label:
         title += f" — {device_label}"
     ax.set_title(title)
-    ax.legend()
+    ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
     ax.set_xscale("log", base=2)
     ax.set_yscale("log")
 
 
 def plot_speedup(strong_rows, ax, device_label):
-    """Strong scaling speedup with ideal-linear reference."""
     if not strong_rows:
         ax.text(0.5, 0.5, "No strong-scaling data",
                 ha="center", va="center", transform=ax.transAxes)
         ax.set_title("Speedup")
         return
 
-    by_gbs = defaultdict(list)
-    for r in strong_rows:
-        by_gbs[r["global_batch_size"]].append(r)
-
+    groups = group_strong(strong_rows)
     max_ws = 1
-    for gbs in sorted(by_gbs):
-        runs = sorted(by_gbs[gbs], key=lambda x: x["world_size"])
+
+    for (model, prec, gbs), runs in sorted(groups.items()):
+        # baseline must be 1-GPU run for this exact (model, precision, GBS)
         baseline = next((r for r in runs if r["world_size"] == 1), None)
         if baseline is None:
-            print(f"Warning: no 1-GPU baseline for global batch {gbs}; "
-                  f"skipping speedup plot for this batch size",
+            print(f"Warning: no 1-GPU baseline for {model} {prec} GBS={gbs}",
                   file=sys.stderr)
             continue
         baseline_t = baseline["mean_step_sec"]
         ws = [r["world_size"] for r in runs]
         speedup = [baseline_t / r["mean_step_sec"] for r in runs]
-        ax.plot(ws, speedup, "o-",
-                label=f"global batch={gbs}", linewidth=2, markersize=8)
+        label = f"{make_label(model, prec)} GBS={gbs}"
+        ax.plot(ws, speedup, "o-", label=label, linewidth=2, markersize=8)
         max_ws = max(max_ws, max(ws))
 
-    # Ideal linear speedup reference line
+    # Ideal linear reference
     ideal_x = [2 ** i for i in range(0, max_ws.bit_length())]
     ideal_x = [x for x in ideal_x if x <= max_ws]
     if ideal_x[-1] != max_ws:
@@ -163,26 +204,22 @@ def plot_speedup(strong_rows, ax, device_label):
     if device_label:
         title += f" — {device_label}"
     ax.set_title(title)
-    ax.legend()
+    ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
     ax.set_xscale("log", base=2)
     ax.set_yscale("log", base=2)
 
 
 def plot_efficiency(strong_rows, ax, device_label):
-    """Parallel efficiency = speedup / world_size. 1.0 = ideal."""
     if not strong_rows:
         ax.text(0.5, 0.5, "No strong-scaling data",
                 ha="center", va="center", transform=ax.transAxes)
         ax.set_title("Efficiency")
         return
 
-    by_gbs = defaultdict(list)
-    for r in strong_rows:
-        by_gbs[r["global_batch_size"]].append(r)
+    groups = group_strong(strong_rows)
 
-    for gbs in sorted(by_gbs):
-        runs = sorted(by_gbs[gbs], key=lambda x: x["world_size"])
+    for (model, prec, gbs), runs in sorted(groups.items()):
         baseline = next((r for r in runs if r["world_size"] == 1), None)
         if baseline is None:
             continue
@@ -190,8 +227,8 @@ def plot_efficiency(strong_rows, ax, device_label):
         ws = [r["world_size"] for r in runs]
         efficiency = [(baseline_t / r["mean_step_sec"]) / r["world_size"]
                       for r in runs]
-        ax.plot(ws, efficiency, "o-",
-                label=f"global batch={gbs}", linewidth=2, markersize=8)
+        label = f"{make_label(model, prec)} GBS={gbs}"
+        ax.plot(ws, efficiency, "o-", label=label, linewidth=2, markersize=8)
 
     ax.axhline(y=1.0, color="k", linestyle="--", linewidth=1, alpha=0.5,
                label="ideal (100%)")
@@ -203,14 +240,13 @@ def plot_efficiency(strong_rows, ax, device_label):
     if device_label:
         title += f" — {device_label}"
     ax.set_title(title)
-    ax.legend()
+    ax.legend(fontsize=8)
     ax.grid(True, alpha=0.3)
     ax.set_xscale("log", base=2)
     ax.set_ylim(0, 1.15)
 
 
 def plot_gpu_activity(rows, ax, device_label):
-    """Bar chart of mean GPU activity % per configuration."""
     runs_with_activity = [r for r in rows if get_activity(r) is not None]
     if not runs_with_activity:
         ax.text(0.5, 0.5, "No GPU sampling data",
@@ -219,10 +255,12 @@ def plot_gpu_activity(rows, ax, device_label):
         return
 
     runs_with_activity.sort(key=lambda r: (r["scaling_mode"],
+                                           r.get("model", ""),
+                                           r.get("precision", ""),
                                            r["world_size"]))
     labels = [
-        f"{r['scaling_mode']}\nW={r['world_size']}\n"
-        f"bs={r['batch_size_per_gpu']}"
+        f"{r['scaling_mode']}\n{r.get('model','?')}\n"
+        f"{r.get('precision','?')} W={r['world_size']}"
         for r in runs_with_activity
     ]
     activities = [get_activity(r) for r in runs_with_activity]
@@ -231,7 +269,7 @@ def plot_gpu_activity(rows, ax, device_label):
                   color=["steelblue" if r["scaling_mode"] == "weak"
                          else "coral" for r in runs_with_activity])
     ax.set_xticks(range(len(labels)))
-    ax.set_xticklabels(labels, fontsize=8)
+    ax.set_xticklabels(labels, fontsize=7)
     ax.set_ylabel("Mean GPU activity (%)")
     ax.axhline(y=80, color="orange", linestyle=":", linewidth=1, alpha=0.5,
                label="80% threshold")
@@ -242,33 +280,26 @@ def plot_gpu_activity(rows, ax, device_label):
     ax.set_ylim(0, 105)
     ax.grid(True, alpha=0.3, axis="y")
     ax.legend()
-
-    # Annotate bars with values
     for bar, val in zip(bars, activities):
         ax.text(bar.get_x() + bar.get_width() / 2, val + 1,
-                f"{val:.0f}%", ha="center", va="bottom", fontsize=8)
+                f"{val:.0f}%", ha="center", va="bottom", fontsize=7)
 
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("results_dir", help="Directory containing *.json results")
-    ap.add_argument("--output-dir", default="plots",
-                    help="Where to save PNG files (default: plots/)")
-    ap.add_argument("--device-label", default="",
-                    help="Optional label for plot titles, e.g. 'B200'")
-    ap.add_argument("--show", action="store_true",
-                    help="Show interactive plots (requires display)")
+    ap.add_argument("--output-dir", default="plots")
+    ap.add_argument("--device-label", default="")
+    ap.add_argument("--show", action="store_true")
     args = ap.parse_args()
 
     try:
         import matplotlib
         if not args.show:
-            matplotlib.use("Agg")  # headless backend for cluster nodes
+            matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
-        print("ERROR: matplotlib not installed. Install with:",
-              file=sys.stderr)
-        print("    pip install matplotlib", file=sys.stderr)
+        print("ERROR: pip install matplotlib", file=sys.stderr)
         sys.exit(1)
 
     rows = load_results(args.results_dir)
@@ -278,40 +309,39 @@ def main():
 
     weak = [r for r in rows if r["scaling_mode"] == "weak"]
     strong = [r for r in rows if r["scaling_mode"] == "strong"]
-
-    print(f"Loaded {len(rows)} results: "
-          f"{len(weak)} weak, {len(strong)} strong")
+    print(f"Loaded {len(rows)} results: {len(weak)} weak, {len(strong)} strong")
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    # 2x2 grid of the main four plots
+    # 2x2: weak throughput, weak efficiency, strong speedup, strong efficiency
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    plot_weak_throughput(weak, axes[0, 0], args.device_label)
-    plot_strong_throughput(strong, axes[0, 1], args.device_label)
-    plot_speedup(strong, axes[1, 0], args.device_label)
-    plot_efficiency(strong, axes[1, 1], args.device_label)
+    plot_weak_throughput(weak,   axes[0, 0], args.device_label)
+    plot_weak_efficiency(weak,   axes[0, 1], args.device_label)
+    plot_speedup(strong,         axes[1, 0], args.device_label)
+    plot_efficiency(strong,      axes[1, 1], args.device_label)
     fig.tight_layout()
     overview_path = os.path.join(args.output_dir, "scaling_overview.png")
     fig.savefig(overview_path, dpi=120)
     print(f"Wrote {overview_path}")
+    plt.close(fig)
 
-    # Each plot also as a standalone PNG for slide decks
+    # Standalone PNGs
     for name, plotter, data in [
-        ("weak_throughput", plot_weak_throughput, weak),
+        ("weak_throughput",  plot_weak_throughput,  weak),
+        ("weak_efficiency",  plot_weak_efficiency,  weak),
         ("strong_throughput", plot_strong_throughput, strong),
-        ("speedup", plot_speedup, strong),
-        ("efficiency", plot_efficiency, strong),
+        ("speedup",          plot_speedup,           strong),
+        ("efficiency",       plot_efficiency,        strong),
     ]:
-        fig_single, ax = plt.subplots(figsize=(8, 6))
+        fig_s, ax = plt.subplots(figsize=(8, 6))
         plotter(data, ax, args.device_label)
-        fig_single.tight_layout()
+        fig_s.tight_layout()
         path = os.path.join(args.output_dir, f"{name}.png")
-        fig_single.savefig(path, dpi=120)
-        plt.close(fig_single)
+        fig_s.savefig(path, dpi=120)
+        plt.close(fig_s)
         print(f"Wrote {path}")
 
-    # GPU activity bar chart (separate because it has different layout needs)
-    fig_act, ax_act = plt.subplots(figsize=(12, 6))
+    fig_act, ax_act = plt.subplots(figsize=(14, 6))
     plot_gpu_activity(rows, ax_act, args.device_label)
     fig_act.tight_layout()
     activity_path = os.path.join(args.output_dir, "gpu_activity.png")
